@@ -12,12 +12,15 @@ exclude_dirs=(
   "--exclude-dir=node_modules"
   "--exclude-dir=dist"
   "--exclude-dir=uploads"
+  "--exclude-dir=.githooks"
 )
 
 exclude_files=(
   "--exclude=*.env"
   "--exclude=.env"
   "--exclude=.env.*"
+  "--exclude=scripts/scan-secrets.sh"
+  "--exclude=scripts/install-git-hooks.sh"
 )
 
 patterns=(
@@ -49,4 +52,3 @@ else
   echo "\nReview the above matches and remediate as needed."
   exit 1
 fi
-
