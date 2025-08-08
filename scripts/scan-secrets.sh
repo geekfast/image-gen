@@ -19,8 +19,8 @@ exclude_files=(
   "--exclude=*.env"
   "--exclude=.env"
   "--exclude=.env.*"
-  "--exclude=scripts/scan-secrets.sh"
-  "--exclude=scripts/install-git-hooks.sh"
+  "--exclude=*scan-secrets.sh"
+  "--exclude=*install-git-hooks.sh"
 )
 
 patterns=(
