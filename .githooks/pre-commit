@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pre-commit guard for secrets and forbidden files
+# Exits non-zero if suspicious content is staged.
+
+red() { printf "\033[31m%s\033[0m\n" "$*"; }
+yellow() { printf "\033[33m%s\033[0m\n" "$*"; }
+
+# Get list of staged files (added, copied, modified, renamed)
+staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
+
+if [ -z "$staged_files" ]; then
+  exit 0
+fi
+
+# 1) Block committing .env files or other obvious secrets containers
+blocked_paths_regex='(^|/)\.env(\..*)?$|(^|/).*\.pem$|(^|/)id_rsa$|(^|/)id_ed25519$'
+bad_paths=$(printf "%s\n" "$staged_files" | grep -E "$blocked_paths_regex" || true)
+if [ -n "$bad_paths" ]; then
+  red "Blocked: refusing to commit secret-bearing files:"
+  printf "  %s\n" $bad_paths
+  red "Add them to .gitignore or use environment variables instead."
+  exit 1
+fi
+
+# 2) Scan staged diff for common secret patterns
+patterns=(
+  'BEGIN RSA PRIVATE KEY'
+  'BEGIN OPENSSH PRIVATE KEY'
+  'xox[baprs]-[0-9A-Za-z-]+'             # Slack tokens
+  'AKIA[0-9A-Z]{16}'                     # AWS Access Key ID
+  'ASIA[0-9A-Z]{16}'                     # AWS Temp Access Key ID
+  'aws_secret_access_key\s*[:=]\s*[A-Za-z0-9/+=]{20,}'
+  'secret_key\s*[:=]\s*[A-Za-z0-9/+=]{20,}'
+  'OPENAI_API_KEY\s*[:=]\s*sk-[A-Za-z0-9]{20,}'
+  'GH_TOKEN\s*[:=]\s*[A-Za-z0-9_]{20,}'
+  'GITHUB_TOKEN\s*[:=]\s*[A-Za-z0-9_]{20,}'
+  'AZURE_?[A-Z0-9_]*KEY\s*[:=]\s*[A-Za-z0-9/+=]{20,}'
+)
+
+found=false
+
+# Iterate per-file to allow exclusions for repo-maintenance scripts
+while IFS= read -r file; do
+  # Skip empty lines
+  [ -z "$file" ] && continue
+  # Exclude our hooks and scan scripts to avoid false positives on pattern strings
+  if [[ "$file" =~ ^\.githooks/ ]] || [[ "$file" == scripts/scan-secrets.sh ]] || [[ "$file" == scripts/install-git-hooks.sh ]]; then
+    continue
+  fi
+  file_diff=$(git diff --cached -U0 -- "$file")
+  for pat in "${patterns[@]}"; do
+    if printf "%s" "$file_diff" | grep -E --quiet "$pat"; then
+      yellow "Potential secret detected in $file (pattern: $pat)"
+      found=true
+    fi
+  done
+done <<< "$staged_files"
+
+if [ "$found" = true ]; then
+  red "Commit aborted due to suspected secrets in staged changes."
+  red "Review your diff, move secrets to env vars, and retry."
+  exit 1
+fi
+
+exit 0
