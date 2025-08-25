@@ -19,7 +19,100 @@ interface GenerationHistory {
     n: number;
   };
   createdAt: string;
+  duration?: string;
 }
+
+interface UploadedImage {
+  id: string;
+  filename: string;
+  url: string;
+  title: string;
+  prompt: string;
+  revisedPrompt: string;
+  size: string;
+  quality: string;
+  createdAt: string;
+  fileSize: number;
+}
+
+interface ImageCardProps {
+  id: string;
+  imageUrl: string;
+  title: string;
+  size?: string;
+  quality?: string;
+  date: string;
+  duration?: string;
+  onImageClick: () => void;
+  onTitleClick?: () => void;
+  showDownload?: boolean;
+  onDownload?: () => void;
+}
+
+// Helper function to convert size to orientation
+const getSizeLabel = (size: string): string => {
+  switch (size) {
+    case '1024x1024':
+      return 'Square';
+    case '1024x1536':
+      return 'Portrait';
+    case '1536x1024':
+      return 'Landscape';
+    default:
+      return 'Square';
+  }
+};
+
+const ImageCard: React.FC<ImageCardProps> = ({
+  id,
+  imageUrl,
+  title,
+  size = "1024x1024",
+  quality = "medium", 
+  date,
+  duration,
+  onImageClick,
+  onTitleClick,
+  showDownload = false,
+  onDownload
+}) => {
+  return (
+    <div key={id} className="image-card-item">
+      <img
+        src={imageUrl}
+        alt={title}
+        className="image-card-image clickable-image"
+        onClick={onImageClick}
+      />
+      <div className="image-card-info">
+        <p 
+          className="image-card-title" 
+          onClick={onTitleClick}
+          style={{ cursor: onTitleClick ? 'pointer' : 'default' }}
+        >
+          {title}
+        </p>
+        <div className="image-card-meta">
+          <span>{getSizeLabel(size)}</span>
+          <span>{quality}</span>
+          {duration && <span>{duration}</span>}
+          <span>{date}</span>
+        </div>
+      </div>
+      {showDownload && onDownload && (
+        <div className="image-card-actions">
+          <button
+            onClick={onDownload}
+            className="btn btn-secondary btn-small"
+          >
+            <Download size={14} />
+            Download
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
@@ -38,7 +131,10 @@ function App() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [history, setHistory] = useState<GenerationHistory[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
 
   const generateImage = async () => {
     if (!prompt.trim()) {
@@ -74,9 +170,11 @@ function App() {
           await axios.post(`${API_BASE_URL}/save-to-history`, {
             prompt: prompt.trim(),
             imageUrl: response.data.images[0].url,
-            settings: settings
+            settings: settings,
+            duration: `${duration}s`
           });
           loadHistory();
+          loadUploadedImages(); // Reload uploaded images
         }
       }
     } catch (err: any) {
@@ -97,6 +195,25 @@ function App() {
     } catch (err) {
       console.error('Error loading history:', err);
     }
+  };
+
+  const loadUploadedImages = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/uploads`);
+      setUploadedImages(response.data.images || []);
+    } catch (err) {
+      console.error('Error loading uploaded images:', err);
+    }
+  };
+
+  const openImageModal = (imageUrl: string, title: string) => {
+    setSelectedImage({ url: imageUrl, title });
+    setShowImageModal(true);
+  };
+
+  const closeImageModal = () => {
+    setShowImageModal(false);
+    setSelectedImage(null);
   };
 
   const downloadImage = async (imageUrl: string, filename: string) => {
@@ -125,10 +242,10 @@ function App() {
 
   // Live timer effect
   React.useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: number | null = null;
     
     if (loading && startTime) {
-      interval = setInterval(() => {
+      interval = window.setInterval(() => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         setCurrentTime(`${elapsed}s`);
       }, 100); // Update every 100ms for smooth animation
@@ -136,14 +253,32 @@ function App() {
     
     return () => {
       if (interval) {
-        clearInterval(interval);
+        window.clearInterval(interval);
       }
     };
   }, [loading, startTime]);
 
   React.useEffect(() => {
     loadHistory();
+    loadUploadedImages();
   }, []);
+
+  // Handle ESC key to close modal
+  React.useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showImageModal) {
+        closeImageModal();
+      }
+    };
+
+    if (showImageModal) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showImageModal]);
 
   return (
     <div className="app">
@@ -157,7 +292,13 @@ function App() {
             <div className="header-actions">
               <button
                 className={`btn btn-secondary ${showHistory ? 'active' : ''}`}
-                onClick={() => setShowHistory(!showHistory)}
+                onClick={() => {
+                  setShowHistory(!showHistory);
+                  if (!showHistory) {
+                    loadHistory();
+                    loadUploadedImages();
+                  }
+                }}
               >
                 <History size={20} />
                 History
@@ -185,15 +326,14 @@ function App() {
                     onChange={(e) => setSettings({ ...settings, size: e.target.value })}
                   >
                     <option value="1024x1024">Square (1024×1024)</option>
-                    <option value="1792x1024">Landscape (1792×1024)</option>
-                    <option value="1024x1792">Portrait (1024×1792)</option>
-                    <option value="512x512">Small Square (512×512)</option>
+                    <option value="1024x1536">Portrait (1024×1536)</option>
+                    <option value="1536x1024">Landscape (1536×1024)</option>
                   </select>
                 </div>
                 <div className="setting-group">
                   <label>Quality</label>
                   <div className="quality-buttons">
-                    {['low', 'medium', 'high', 'auto'].map((quality) => (
+                    {['medium', 'auto'].map((quality) => (
                       <button
                         key={quality}
                         type="button"
@@ -279,7 +419,8 @@ function App() {
                     <img
                       src={image.url}
                       alt={`Generated image ${index + 1}`}
-                      className="generated-image"
+                      className="generated-image clickable-image"
+                      onClick={() => openImageModal(image.url, `Generated Image ${index + 1}`)}
                     />
                     <div className="image-actions">
                       <button
@@ -306,22 +447,40 @@ function App() {
               <h2>Generation History</h2>
               <div className="history-grid">
                 {history.map((item) => (
-                  <div key={item.id} className="history-item">
-                    <img
-                      src={item.imageUrl}
-                      alt="Historical generation"
-                      className="history-image"
-                      onClick={() => setPrompt(item.prompt)}
-                    />
-                    <div className="history-info">
-                      <p className="history-prompt">{item.prompt}</p>
-                      <div className="history-meta">
-                        <span>{item.settings.size}</span>
-                        <span>{item.settings.quality}</span>
-                        <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
+                  <ImageCard
+                    key={item.id}
+                    id={item.id}
+                    imageUrl={item.imageUrl}
+                    title={item.prompt}
+                    size={item.settings.size}
+                    quality={item.settings.quality}
+                    duration={item.duration}
+                    date={new Date(item.createdAt).toLocaleDateString()}
+                    onImageClick={() => openImageModal(item.imageUrl, `History: ${item.prompt.substring(0, 50)}...`)}
+                    onTitleClick={() => setPrompt(item.prompt)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showHistory && uploadedImages.length > 0 && (
+            <div className="uploads-section">
+              <h2>All Generated Images ({uploadedImages.length})</h2>
+              <div className="uploads-grid">
+                {uploadedImages.map((image) => (
+                  <ImageCard
+                    key={image.id}
+                    id={image.id}
+                    imageUrl={image.url}
+                    title={image.title}
+                    size={image.size}
+                    quality={image.quality}
+                    date={new Date(image.createdAt).toLocaleDateString()}
+                    onImageClick={() => openImageModal(image.url, image.title)}
+                    showDownload={true}
+                    onDownload={() => downloadImage(image.url, image.filename.replace(/\.[^/.]+$/, ""))}
+                  />
                 ))}
               </div>
             </div>
@@ -334,6 +493,45 @@ function App() {
             <span className="tip"> Tip: Click on history images to reuse prompts</span>
           </p>
         </footer>
+
+        {/* Image Modal */}
+        {showImageModal && selectedImage && (
+          <div className="modal-overlay" onClick={closeImageModal}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              {/* <button
+                type="button"
+                aria-label="Close image modal"
+                title="Close"
+                className="modal-close"
+                onClick={closeImageModal}
+              >
+                ×
+              </button> */}
+              <div className="modal-header">
+                {/* <h3>{selectedImage.title}</h3> */}
+              </div>
+              <div className="modal-body">
+                <img
+                  src={selectedImage.url}
+                  alt={selectedImage.title}
+                  className="modal-image"
+                />
+              </div>
+              <div className="modal-header">
+                <h3>{selectedImage.title}</h3>
+              </div>
+              <div className="modal-footer">
+                <button
+                  onClick={() => downloadImage(selectedImage.url, selectedImage.title.replace(/[^a-zA-Z0-9]/g, '_'))}
+                  className="btn btn-primary"
+                >
+                  <Download size={16} />
+                  Download Full Size
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

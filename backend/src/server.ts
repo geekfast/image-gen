@@ -166,16 +166,16 @@ app.post('/api/generate-image', async (req, res) => {
       return res.status(500).json({ error: 'Azure OpenAI Image API is not configured' });
     }
 
-    // Validate size parameter
-    const validSizes = ['256x256', '512x512', '1024x1024', '1792x1024', '1024x1792'];
+    // Validate size parameter - Azure OpenAI supported sizes
+    const validSizes = ['1024x1024', '1024x1536', '1536x1024'];
     if (!validSizes.includes(size)) {
       return res.status(400).json({ 
         error: 'Invalid size. Must be one of: ' + validSizes.join(', ') 
       });
     }
 
-    // Validate quality parameter
-    const validQualities = ['low', 'medium', 'high', 'auto'];
+    // Validate quality parameter - Azure OpenAI supported qualities
+    const validQualities = ['medium', 'auto'];
     if (!validQualities.includes(quality)) {
       return res.status(400).json({ 
         error: 'Invalid quality. Must be one of: ' + validQualities.join(', ') 
@@ -196,8 +196,8 @@ app.post('/api/generate-image', async (req, res) => {
     const response = await imageOpenAI.images.generate({
       model: process.env.AZURE_IMAGE_DEPLOYMENT || 'gpt-image-1',
       prompt: prompt,
-      size: size as '1024x1024' | '1792x1024' | '1024x1792',
-      quality: quality as 'low' | 'medium' | 'high' | 'auto',
+      size: size as '1024x1024' | '1024x1536' | '1536x1024',
+      quality: quality as 'medium' | 'auto',
       n: n,
     });
 
@@ -214,9 +214,23 @@ app.post('/api/generate-image', async (req, res) => {
           const imageBuffer = Buffer.from(image.b64_json, 'base64');
           const filename = `${imageId}.png`;
           const filepath = path.join(uploadsDir, filename);
+          const metafilepath = path.join(uploadsDir, `${imageId}_meta.json`);
+          
+          // Save image file
           fs.writeFileSync(filepath, imageBuffer);
+          
+          // Save metadata with prompt
+          const metadata = {
+            prompt: prompt,
+            size: size,
+            quality: quality,
+            revisedPrompt: image.revised_prompt || prompt,
+            createdAt: new Date().toISOString()
+          };
+          fs.writeFileSync(metafilepath, JSON.stringify(metadata, null, 2));
+          
           imageUrl = `http://localhost:${PORT}/uploads/${filename}`;
-          console.log(`💾 Image saved as ${filename}`);
+          console.log(`💾 Image saved as ${filename} with metadata`);
         } catch (saveError) {
           console.error('❌ Failed to save image:', saveError);
           imageUrl = 'data:image/png;base64,' + image.b64_json; // Fallback to base64 data URL
@@ -284,15 +298,77 @@ app.get('/api/history', (req, res) => {
   res.json({ history: imageHistory });
 });
 
+// Get all images from uploads folder
+app.get('/api/uploads', (req, res) => {
+  try {
+    const uploadsPath = path.join(__dirname, '../uploads');
+    
+    if (!fs.existsSync(uploadsPath)) {
+      return res.json({ images: [] });
+    }
+
+    const files = fs.readdirSync(uploadsPath);
+    const imageFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase();
+      return ['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext);
+    });
+
+    const images = imageFiles.map(file => {
+      const filePath = path.join(uploadsPath, file);
+      const stats = fs.statSync(filePath);
+      const baseId = file.replace(/\.[^/.]+$/, ""); // Remove extension for ID
+      const metaPath = path.join(uploadsPath, `${baseId}_meta.json`);
+      
+      let metadata = null;
+      try {
+        if (fs.existsSync(metaPath)) {
+          const metaContent = fs.readFileSync(metaPath, 'utf8');
+          metadata = JSON.parse(metaContent);
+        }
+      } catch (metaError) {
+        console.warn(`⚠️ Could not read metadata for ${file}:`, metaError);
+      }
+      
+      return {
+        id: baseId,
+        filename: file,
+        url: `http://localhost:${PORT}/uploads/${file}`,
+        title: metadata?.prompt || baseId,
+        prompt: metadata?.prompt || '',
+        revisedPrompt: metadata?.revisedPrompt || '',
+        size: metadata?.size || 'unknown',
+        quality: metadata?.quality || 'unknown',
+        createdAt: metadata?.createdAt || stats.birthtime.toISOString(),
+        fileSize: stats.size
+      };
+    });
+
+    // Sort by creation date (newest first)
+    images.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json({ 
+      images: images,
+      count: images.length 
+    });
+  } catch (error: any) {
+    console.error('Error reading uploads folder:', error);
+    res.status(500).json({ 
+      error: 'Failed to read uploads folder',
+      message: error.message 
+    });
+  }
+});
+
 // Save image to history
 app.post('/api/save-to-history', (req, res) => {
-  const { prompt, imageUrl, settings } = req.body;
+  const { prompt, imageUrl, settings, duration } = req.body;
   
   const historyItem = {
     id: Date.now().toString(),
     prompt,
     imageUrl,
     settings,
+    duration,
     createdAt: new Date().toISOString()
   };
   
@@ -323,6 +399,7 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/health - Health check`);
   console.log(`   POST /api/generate-image - Generate images`);
   console.log(`   GET  /api/history - Get generation history`);
+  console.log(`   GET  /api/uploads - Get all uploaded images`);
   console.log(`   POST /api/save-to-history - Save image to history`);
 });
 
