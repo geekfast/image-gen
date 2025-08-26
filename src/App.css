@@ -15,18 +15,24 @@ body {
 
 /* App Container */
 .app {
-  min-height: 100vh;
-  padding: 1rem;
+min-height: 100vh;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 0;
 }
 
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: 600px;
+  width: 100%;
   background: white;
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  min-height: calc(100vh - 2rem);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: auto;
 }
 
 /* Header */
