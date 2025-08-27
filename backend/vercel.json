@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "src/server.ts", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/src/server.ts" }
+  ],
+  "env": {
+    "AZURE_OPENAI_API_KEY": "",
+    "AZURE_OPENAI_ENDPOINT": "",
+    "AZURE_OPENAI_API_VERSION": "",
+    "GPT_4_1_DEPLOYMENT": "",
+    "GPT_4O_DEPLOYMENT": "",
+    "GPT_5_DEPLOYMENT": "",
+    "O3_DEPLOYMENT": "",
+    "AZURE_IMAGE_ENDPOINT": "",
+    "AZURE_IMAGE_API_KEY": "",
+    "AZURE_IMAGE_DEPLOYMENT": "",
+    "AZURE_IMAGE_API_VERSION": "",
+    "MAX_TOKENS": "4096",
+    "TEMPERATURE": "1.0",
+    "TOP_P": "1.0",
+    "FRONTEND_ORIGIN": "http://localhost:5173"
+  }
+}
