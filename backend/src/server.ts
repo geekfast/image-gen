@@ -57,9 +57,11 @@ if (process.env.AZURE_IMAGE_API_KEY && process.env.AZURE_IMAGE_ENDPOINT) {
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://your-app-name.vercel.app']
+    ? ['https://image-cqntibwoi-geekfast.vercel.app', 'https://vercel.app', 'https://*.vercel.app']
     : ['http://localhost:5173', 'http://127.0.0.1:5173'],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -236,7 +238,7 @@ app.post('/api/generate-image', async (req, res) => {
           
           // Use proper host URL for production
           const hostUrl = process.env.NODE_ENV === 'production' 
-            ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://your-app-name.vercel.app`
+            ? 'https://image-cqntibwoi-geekfast.vercel.app'
             : `http://localhost:${PORT}`;
           imageUrl = `${hostUrl}/uploads/${filename}`;
           console.log(`💾 Image saved as ${filename} with metadata`);
@@ -340,7 +342,7 @@ app.get('/api/uploads', (req, res) => {
       
       // Use proper host URL for production
       const hostUrl = process.env.NODE_ENV === 'production' 
-        ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://your-app-name.vercel.app`
+        ? 'https://image-cqntibwoi-geekfast.vercel.app'
         : `http://localhost:${PORT}`;
       
       return {
