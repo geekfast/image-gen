@@ -114,7 +114,9 @@ const ImageCard: React.FC<ImageCardProps> = ({
   );
 };
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.PROD 
+  ? 'https://image-likuryrjt-geekfast.vercel.app/api'
+  : 'http://localhost:3001/api';
 
 function App() {
   const [prompt, setPrompt] = useState('');
