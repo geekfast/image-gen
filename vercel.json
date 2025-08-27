@@ -1,0 +1,51 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "backend/src/server.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/backend/src/server.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/$1"
+    }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install && cd backend && npm install",
+  "env": {
+    "AZURE_OPENAI_API_KEY": "@azure_openai_api_key",
+    "AZURE_OPENAI_ENDPOINT": "@azure_openai_endpoint",
+    "AZURE_OPENAI_API_VERSION": "@azure_openai_api_version",
+    "GPT_4_1_DEPLOYMENT": "@gpt_4_1_deployment",
+    "GPT_4O_DEPLOYMENT": "@gpt_4o_deployment",
+    "GPT_5_DEPLOYMENT": "@gpt_5_deployment",
+    "O3_DEPLOYMENT": "@o3_deployment",
+    "AZURE_IMAGE_ENDPOINT": "@azure_image_endpoint",
+    "AZURE_IMAGE_API_KEY": "@azure_image_api_key",
+    "AZURE_IMAGE_DEPLOYMENT": "@azure_image_deployment",
+    "AZURE_IMAGE_API_VERSION": "@azure_image_api_version",
+    "MAX_TOKENS": "4096",
+    "TEMPERATURE": "1.0",
+    "TOP_P": "1.0",
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "backend/src/server.ts": {
+      "maxDuration": 30
+    }
+  }
+}
