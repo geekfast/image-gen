@@ -55,7 +55,12 @@ if (process.env.AZURE_IMAGE_API_KEY && process.env.AZURE_IMAGE_ENDPOINT) {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://your-app-name.vercel.app']
+    : ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -229,7 +234,11 @@ app.post('/api/generate-image', async (req, res) => {
           };
           fs.writeFileSync(metafilepath, JSON.stringify(metadata, null, 2));
           
-          imageUrl = `http://localhost:${PORT}/uploads/${filename}`;
+          // Use proper host URL for production
+          const hostUrl = process.env.NODE_ENV === 'production' 
+            ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://your-app-name.vercel.app`
+            : `http://localhost:${PORT}`;
+          imageUrl = `${hostUrl}/uploads/${filename}`;
           console.log(`💾 Image saved as ${filename} with metadata`);
         } catch (saveError) {
           console.error('❌ Failed to save image:', saveError);
@@ -329,10 +338,15 @@ app.get('/api/uploads', (req, res) => {
         console.warn(`⚠️ Could not read metadata for ${file}:`, metaError);
       }
       
+      // Use proper host URL for production
+      const hostUrl = process.env.NODE_ENV === 'production' 
+        ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://your-app-name.vercel.app`
+        : `http://localhost:${PORT}`;
+      
       return {
         id: baseId,
         filename: file,
-        url: `http://localhost:${PORT}/uploads/${file}`,
+        url: `${hostUrl}/uploads/${file}`,
         title: metadata?.prompt || baseId,
         prompt: metadata?.prompt || '',
         revisedPrompt: metadata?.revisedPrompt || '',

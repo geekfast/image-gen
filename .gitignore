@@ -32,3 +32,4 @@ dist-ssr
 /uploads/
 /backend/uploads/
 backend/uploads/
+.vercel

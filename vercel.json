@@ -5,12 +5,18 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "dist",
+        "installCommand": "npm install",
+        "buildCommand": "npm run build"
       }
     },
     {
       "src": "backend/src/server.ts",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 30,
+        "installCommand": "cd backend && npm install"
+      }
     }
   ],
   "routes": [
@@ -23,9 +29,6 @@
       "dest": "/dist/$1"
     }
   ],
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "installCommand": "npm install && cd backend && npm install",
   "env": {
     "AZURE_OPENAI_API_KEY": "@azure_openai_api_key",
     "AZURE_OPENAI_ENDPOINT": "@azure_openai_endpoint",
@@ -42,10 +45,5 @@
     "TEMPERATURE": "1.0",
     "TOP_P": "1.0",
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "backend/src/server.ts": {
-      "maxDuration": 30
-    }
   }
 }
