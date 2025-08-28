@@ -57,7 +57,7 @@ if (process.env.AZURE_IMAGE_API_KEY && process.env.AZURE_IMAGE_ENDPOINT) {
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://image-likuryrjt-geekfast.vercel.app', 'https://vercel.app', 'https://*.vercel.app']
+    ? ['https://image-gen-lovat.vercel.app', 'https://image-9syq9h149-geekfast.vercel.app', 'https://image-my6t7px09-geekfast.vercel.app', 'https://image-likuryrjt-geekfast.vercel.app', 'https://vercel.app', 'https://*.vercel.app']
     : ['http://localhost:5173', 'http://127.0.0.1:5173'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
